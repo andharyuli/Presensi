@@ -16,6 +16,26 @@ import {
   resetAllToDefault,
 } from './utils/storage';
 import {
+  initializeFirestoreData,
+  subscribeToClasses,
+  subscribeToStudents,
+  subscribeToAttendance,
+  subscribeToSchoolProfile,
+  subscribeToNotifications,
+  saveAttendanceRecordToFirebase,
+  saveBatchAttendanceToFirebase,
+  saveStudentToFirebase,
+  saveBatchStudentsToFirebase,
+  deleteStudentFromFirebase,
+  deleteBatchStudentsFromFirebase,
+  saveClassToFirebase,
+  deleteClassFromFirebase,
+  saveSchoolProfileToFirebase,
+  saveNotificationToFirebase,
+  saveBatchNotificationsToFirebase,
+  resetFirestoreToDefault,
+} from './utils/firebase';
+import {
   AttendanceRecord,
   AttendanceStatus,
   ClassRoom,
@@ -33,7 +53,7 @@ import { StudentManagement } from './components/StudentManagement';
 import { TodayAbsenceList } from './components/TodayAbsenceList';
 import { StudentDetailModal } from './components/StudentDetailModal';
 import { ExportModal } from './components/ExportModal';
-import { RotateCcw, ShieldCheck, Heart } from 'lucide-react';
+import { RotateCcw, ShieldCheck, Heart, Cloud, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   // Main Data States
@@ -44,6 +64,10 @@ export default function App() {
   const [notifications, setNotifications] = useState<ParentNotification[]>(getStoredNotifications);
   const [templates, setTemplates] = useState(getStoredTemplates);
 
+  // Cloud Firestore Sync State
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
+  const [isLoadingCloud, setIsLoadingCloud] = useState<boolean>(true);
+
   // UI States
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [selectedDate, setSelectedDate] = useState<string>(todayString);
@@ -53,7 +77,91 @@ export default function App() {
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Student | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
 
-  // Sync to localStorage
+  // 1. Initialize Firestore Database & Subscribe in Real-Time
+  useEffect(() => {
+    let unsubscribeClasses: (() => void) | undefined;
+    let unsubscribeStudents: (() => void) | undefined;
+    let unsubscribeAttendance: (() => void) | undefined;
+    let unsubscribeProfile: (() => void) | undefined;
+    let unsubscribeNotifs: (() => void) | undefined;
+
+    async function setupFirebaseSync() {
+      try {
+        setIsLoadingCloud(true);
+        // Seed if empty
+        await initializeFirestoreData();
+        setIsCloudConnected(true);
+
+        // Realtime Subscriptions
+        unsubscribeClasses = subscribeToClasses(
+          (data) => {
+            if (data && data.length > 0) {
+              setClasses(data);
+              saveStoredClasses(data);
+            }
+          },
+          () => setIsCloudConnected(false)
+        );
+
+        unsubscribeStudents = subscribeToStudents(
+          (data) => {
+            if (data && data.length > 0) {
+              setStudents(data);
+              saveStoredStudents(data);
+            }
+          },
+          () => setIsCloudConnected(false)
+        );
+
+        unsubscribeAttendance = subscribeToAttendance(
+          (data) => {
+            if (data) {
+              setAttendanceRecords(data);
+              saveStoredAttendance(data);
+            }
+          },
+          () => setIsCloudConnected(false)
+        );
+
+        unsubscribeProfile = subscribeToSchoolProfile(
+          (data) => {
+            if (data) {
+              setSchoolProfile(data);
+              saveStoredSchoolProfile(data);
+            }
+          },
+          () => setIsCloudConnected(false)
+        );
+
+        unsubscribeNotifs = subscribeToNotifications(
+          (data) => {
+            if (data) {
+              setNotifications(data);
+              saveStoredNotifications(data);
+            }
+          },
+          () => setIsCloudConnected(false)
+        );
+      } catch (err) {
+        console.warn('Firebase Firestore offline/fallback to localStorage mode:', err);
+        setIsCloudConnected(false);
+      } finally {
+        setIsLoadingCloud(false);
+      }
+    }
+
+    setupFirebaseSync();
+
+    return () => {
+      if (unsubscribeClasses) unsubscribeClasses();
+      if (unsubscribeStudents) unsubscribeStudents();
+      if (unsubscribeAttendance) unsubscribeAttendance();
+      if (unsubscribeProfile) unsubscribeProfile();
+      if (unsubscribeNotifs) unsubscribeNotifs();
+    };
+  }, []);
+
+  // Sync to localStorage as offline fallback
   useEffect(() => {
     saveStoredClasses(classes);
   }, [classes]);
@@ -79,7 +187,7 @@ export default function App() {
   }, [templates]);
 
   // Handler: Update Attendance for single student
-  const handleUpdateAttendance = (
+  const handleUpdateAttendance = async (
     studentId: string,
     classId: string,
     date: string,
@@ -88,151 +196,237 @@ export default function App() {
     time?: string,
     lateMinutes?: number
   ) => {
-    setAttendanceRecords((prev) => {
-      const existingIdx = prev.findIndex((r) => r.studentId === studentId && r.date === date);
-      const newRec: AttendanceRecord = {
-        id: existingIdx >= 0 ? prev[existingIdx].id : `att-${studentId}-${date}`,
-        studentId,
-        classId,
-        date,
-        status,
-        time: time || (status === 'HADIR' ? '06:50' : '-'),
-        notes: notes || '',
-        recordedBy: 'Guru Piket & Wali Kelas',
-        lateMinutes,
-        updatedAt: new Date().toISOString(),
-      };
+    const existingIdx = attendanceRecords.findIndex((r) => r.studentId === studentId && r.date === date);
+    const newRec: AttendanceRecord = {
+      id: existingIdx >= 0 ? attendanceRecords[existingIdx].id : `att-${studentId}-${date}`,
+      studentId,
+      classId,
+      date,
+      status,
+      time: time || (status === 'HADIR' ? '06:50' : '-'),
+      notes: notes || '',
+      recordedBy: 'Guru Piket & Wali Kelas',
+      lateMinutes,
+      updatedAt: new Date().toISOString(),
+    };
 
-      if (existingIdx >= 0) {
+    // Update local state instantly for snappy UI
+    setAttendanceRecords((prev) => {
+      const idx = prev.findIndex((r) => r.studentId === studentId && r.date === date);
+      if (idx >= 0) {
         const next = [...prev];
-        next[existingIdx] = newRec;
+        next[idx] = newRec;
         return next;
       } else {
         return [...prev, newRec];
       }
     });
 
+    // Sync to Firestore Cloud
+    try {
+      await saveAttendanceRecordToFirebase(newRec);
+    } catch (e) {
+      console.error('Error saving attendance to Firebase:', e);
+    }
+
     // Auto update or generate pending parent notification if status is SAKIT, IZIN, or ALPHA
     if (status === 'SAKIT' || status === 'IZIN' || status === 'ALPHA') {
       const student = students.find((s) => s.id === studentId);
       const currentClass = classes.find((c) => c.id === classId);
       if (student) {
+        const existingNotifIdx = notifications.findIndex(
+          (n) => n.studentId === studentId && n.date === date
+        );
+
+        let targetNotif: ParentNotification;
+
+        if (existingNotifIdx >= 0) {
+          targetNotif = {
+            ...notifications[existingNotifIdx],
+            status,
+            notes,
+          };
+        } else {
+          targetNotif = {
+            id: `notif-${studentId}-${date}`,
+            studentId,
+            studentName: student.name,
+            className: currentClass?.name || '-',
+            parentName: student.parentName,
+            parentPhone: student.parentPhone,
+            date,
+            status,
+            notes,
+            message: `Yth. Bapak/Ibu Wali Murid dari ${student.name},\n\nKami menginformasikan presensi ananda hari ini tercatat: ${status} (${notes || '-'}).\n\nTerima kasih,\n${schoolProfile.name}`,
+            channel: 'WHATSAPP',
+            deliveryStatus: 'PENDING',
+          };
+        }
+
         setNotifications((prevNotifs) => {
-          const existingNotifIdx = prevNotifs.findIndex(
-            (n) => n.studentId === studentId && n.date === date
-          );
-          if (existingNotifIdx >= 0) {
-            const nextNotifs = [...prevNotifs];
-            nextNotifs[existingNotifIdx] = {
-              ...nextNotifs[existingNotifIdx],
-              status,
-              notes,
-            };
-            return nextNotifs;
-          } else {
-            return [
-              ...prevNotifs,
-              {
-                id: `notif-${studentId}-${date}`,
-                studentId,
-                studentName: student.name,
-                className: currentClass?.name || '-',
-                parentName: student.parentName,
-                parentPhone: student.parentPhone,
-                date,
-                status,
-                notes,
-                message: `Yth. Bapak/Ibu Wali Murid dari ${student.name},\n\nKami menginformasikan presensi ananda hari ini tercatat: ${status} (${notes || '-'}).\n\nTerima kasih,\n${schoolProfile.name}`,
-                channel: 'WHATSAPP',
-                deliveryStatus: 'PENDING',
-              },
-            ];
+          const idx = prevNotifs.findIndex((n) => n.id === targetNotif.id);
+          if (idx >= 0) {
+            const next = [...prevNotifs];
+            next[idx] = targetNotif;
+            return next;
           }
+          return [...prevNotifs, targetNotif];
         });
+
+        // Persist notification to Firestore
+        try {
+          await saveNotificationToFirebase(targetNotif);
+        } catch (e) {
+          console.error('Error saving notification to Firebase:', e);
+        }
       }
     }
   };
 
   // Handler: Bulk Set All Present for class
-  const handleBulkSetPresent = (classId: string, date: string) => {
+  const handleBulkSetPresent = async (classId: string, date: string) => {
     const classStudentIds = students
       .filter((s) => s.classId === classId && s.isActive)
       .map((s) => s.id);
+
+    const newBatch: AttendanceRecord[] = classStudentIds.map((stId) => ({
+      id: `att-${stId}-${date}`,
+      studentId: stId,
+      classId,
+      date,
+      status: 'HADIR',
+      time: '06:45',
+      notes: '',
+      recordedBy: 'Guru Piket & Wali Kelas',
+      updatedAt: new Date().toISOString(),
+    }));
 
     setAttendanceRecords((prev) => {
       const prevWithoutTodayClass = prev.filter(
         (r) => !(r.classId === classId && r.date === date)
       );
-
-      const newBatch: AttendanceRecord[] = classStudentIds.map((stId) => ({
-        id: `att-${stId}-${date}`,
-        studentId: stId,
-        classId,
-        date,
-        status: 'HADIR',
-        time: '06:45',
-        notes: '',
-        recordedBy: 'Guru Piket & Wali Kelas',
-        updatedAt: new Date().toISOString(),
-      }));
-
       return [...prevWithoutTodayClass, ...newBatch];
     });
+
+    try {
+      await saveBatchAttendanceToFirebase(newBatch);
+    } catch (e) {
+      console.error('Error bulk saving attendance to Firebase:', e);
+    }
   };
 
   // Handlers for Classes
-  const handleAddClass = (newClass: ClassRoom) => {
+  const handleAddClass = async (newClass: ClassRoom) => {
     setClasses((prev) => [...prev, newClass]);
+    try {
+      await saveClassToFirebase(newClass);
+    } catch (e) {
+      console.error('Error adding class to Firebase:', e);
+    }
   };
 
-  const handleUpdateClass = (updatedClass: ClassRoom) => {
+  const handleUpdateClass = async (updatedClass: ClassRoom) => {
     setClasses((prev) => prev.map((c) => (c.id === updatedClass.id ? updatedClass : c)));
+    try {
+      await saveClassToFirebase(updatedClass);
+    } catch (e) {
+      console.error('Error updating class in Firebase:', e);
+    }
   };
 
-  const handleDeleteClass = (classId: string) => {
+  const handleDeleteClass = async (classId: string) => {
     setClasses((prev) => prev.filter((c) => c.id !== classId));
+    try {
+      await deleteClassFromFirebase(classId);
+    } catch (e) {
+      console.error('Error deleting class from Firebase:', e);
+    }
   };
 
   // Handlers for Students
-  const handleAddStudent = (newStudent: Student) => {
+  const handleAddStudent = async (newStudent: Student) => {
     setStudents((prev) => [...prev, newStudent]);
+    try {
+      await saveStudentToFirebase(newStudent);
+    } catch (e) {
+      console.error('Error adding student to Firebase:', e);
+    }
   };
 
-  const handleBulkAddStudents = (newStudents: Student[]) => {
+  const handleBulkAddStudents = async (newStudents: Student[]) => {
     setStudents((prev) => [...prev, ...newStudents]);
+    try {
+      await saveBatchStudentsToFirebase(newStudents);
+    } catch (e) {
+      console.error('Error bulk adding students to Firebase:', e);
+    }
   };
 
-  const handleUpdateStudent = (updatedStudent: Student) => {
+  const handleUpdateStudent = async (updatedStudent: Student) => {
     setStudents((prev) => prev.map((s) => (s.id === updatedStudent.id ? updatedStudent : s)));
+    try {
+      await saveStudentToFirebase(updatedStudent);
+    } catch (e) {
+      console.error('Error updating student in Firebase:', e);
+    }
   };
 
-  const handleDeleteStudent = (studentId: string) => {
+  const handleDeleteStudent = async (studentId: string) => {
     setStudents((prev) => prev.filter((s) => s.id !== studentId));
+    try {
+      await deleteStudentFromFirebase(studentId);
+    } catch (e) {
+      console.error('Error deleting student from Firebase:', e);
+    }
   };
 
-  const handleClearAllStudents = () => {
+  const handleClearAllStudents = async () => {
+    const allIds = students.map((s) => s.id);
     setStudents([]);
     setAttendanceRecords([]);
     setNotifications([]);
     clearAllStudentsData();
+    try {
+      if (allIds.length > 0) {
+        await deleteBatchStudentsFromFirebase(allIds);
+      }
+    } catch (e) {
+      console.error('Error clearing students from Firebase:', e);
+    }
   };
 
-  const handleClearStudentsByClass = (classId: string) => {
-    const targetStudentIds = new Set(students.filter((s) => s.classId === classId).map((s) => s.id));
+  const handleClearStudentsByClass = async (classId: string) => {
+    const targetStudents = students.filter((s) => s.classId === classId);
+    const targetStudentIds = new Set(targetStudents.map((s) => s.id));
     setStudents((prev) => prev.filter((s) => s.classId !== classId));
     setAttendanceRecords((prev) => prev.filter((r) => !targetStudentIds.has(r.studentId)));
     setNotifications((prev) => prev.filter((n) => !targetStudentIds.has(n.studentId)));
+    try {
+      const idsToDelete = targetStudents.map((s) => s.id);
+      if (idsToDelete.length > 0) {
+        await deleteBatchStudentsFromFirebase(idsToDelete);
+      }
+    } catch (e) {
+      console.error('Error deleting class students from Firebase:', e);
+    }
   };
 
-  const handleDeleteMultipleStudents = (studentIds: string[]) => {
+  const handleDeleteMultipleStudents = async (studentIds: string[]) => {
     const idSet = new Set(studentIds);
     setStudents((prev) => prev.filter((s) => !idSet.has(s.id)));
     setAttendanceRecords((prev) => prev.filter((r) => !idSet.has(r.studentId)));
     setNotifications((prev) => prev.filter((n) => !idSet.has(n.studentId)));
+    try {
+      if (studentIds.length > 0) {
+        await deleteBatchStudentsFromFirebase(studentIds);
+      }
+    } catch (e) {
+      console.error('Error batch deleting students from Firebase:', e);
+    }
   };
 
   // Handlers for Notifications
-  const handleAddOrUpdateNotification = (notif: ParentNotification) => {
+  const handleAddOrUpdateNotification = async (notif: ParentNotification) => {
     setNotifications((prev) => {
       const idx = prev.findIndex((n) => n.id === notif.id);
       if (idx >= 0) {
@@ -242,14 +436,26 @@ export default function App() {
       }
       return [...prev, notif];
     });
+
+    try {
+      await saveNotificationToFirebase(notif);
+    } catch (e) {
+      console.error('Error saving notification to Firebase:', e);
+    }
   };
 
-  const handleBatchSendNotifications = (newNotifs: ParentNotification[]) => {
+  const handleBatchSendNotifications = async (newNotifs: ParentNotification[]) => {
     setNotifications((prev) => {
       const existingMap = new Map(prev.map((n) => [n.id, n]));
       newNotifs.forEach((n) => existingMap.set(n.id, n));
       return Array.from(existingMap.values());
     });
+
+    try {
+      await saveBatchNotificationsToFirebase(newNotifs);
+    } catch (e) {
+      console.error('Error bulk saving notifications to Firebase:', e);
+    }
   };
 
   // Navigation shortcuts
@@ -269,8 +475,13 @@ export default function App() {
     return rec && (rec.status === 'SAKIT' || rec.status === 'IZIN' || rec.status === 'ALPHA');
   }).length;
 
-  const handleResetData = () => {
-    if (confirm('Kembalikan semua data ke sampel data awal resmi?')) {
+  const handleResetData = async () => {
+    if (confirm('Kembalikan semua data ke sampel data awal resmi di Cloud Firebase & Lokal?')) {
+      try {
+        await resetFirestoreToDefault();
+      } catch (e) {
+        console.error('Firebase reset error, resetting local:', e);
+      }
       resetAllToDefault();
       window.location.reload();
     }
@@ -287,6 +498,8 @@ export default function App() {
         schoolProfile={schoolProfile}
         unreadNotifsCount={unreadNotifsCount}
         absentCount={absentStudentsTodayCount}
+        isCloudConnected={isCloudConnected}
+        isLoadingCloud={isLoadingCloud}
       />
 
       {/* Main Content Area */}
@@ -427,12 +640,12 @@ export default function App() {
               title="Reset ke sampel data awal"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Data Demo</span>
+              <span>Reset Data Cloud</span>
             </button>
             <span>&bull;</span>
             <span className="flex items-center gap-1 text-slate-400">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              <span>Versi 2.4 Terverifikasi</span>
+              <span>Firebase Cloud Firestore Terhubung</span>
             </span>
           </div>
         </div>

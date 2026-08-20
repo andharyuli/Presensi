@@ -10,6 +10,9 @@ import {
   Clock,
   Sparkles,
   HeartPulse,
+  Cloud,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { formatIndonesianDate } from '../utils/exportUtils';
 import { SchoolProfile } from '../types';
@@ -22,6 +25,8 @@ interface NavbarProps {
   schoolProfile: SchoolProfile;
   unreadNotifsCount: number;
   absentCount?: number;
+  isCloudConnected?: boolean;
+  isLoadingCloud?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,6 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   schoolProfile,
   unreadNotifsCount,
   absentCount = 0,
+  isCloudConnected = true,
+  isLoadingCloud = false,
 }) => {
   const tabs = [
     {
@@ -96,7 +103,39 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Quick Date Control & Duty Badge */}
-          <div className="flex items-center gap-3 self-end md:self-center">
+          <div className="flex items-center gap-2.5 self-end md:self-center">
+            {/* Firebase Live Cloud Badge */}
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold shadow-2xs transition-all ${
+                isLoadingCloud
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : isCloudConnected
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}
+              title={
+                isLoadingCloud
+                  ? 'Menghubungkan ke Firebase Firestore...'
+                  : isCloudConnected
+                  ? 'Tersambung ke Cloud Database Firestore (Real-time Sync)'
+                  : 'Mode Offline (Penyimpanan Lokal)'
+              }
+            >
+              {isLoadingCloud ? (
+                <Loader2 className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+              ) : isCloudConnected ? (
+                <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                <Cloud className="w-3.5 h-3.5 text-slate-400" />
+              )}
+              <span className="hidden sm:inline">
+                {isLoadingCloud ? 'Menghubungkan...' : isCloudConnected ? 'Firestore Terhubung' : 'Lokal'}
+              </span>
+              {isCloudConnected && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 shadow-2xs">
               <Calendar className="w-4 h-4 text-blue-600" />
               <input
