@@ -31,12 +31,23 @@ import {
   defaultNotificationTemplates,
 } from '../data/initialData';
 
+// Initialize Firebase configuration from environment variables or fallback JSON
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId,
+};
+
 // Initialize Firebase App instance safely
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app = !getApps().length ? initializeApp(config) : getApp();
 
 // Get Firestore instance using the custom databaseId from config if provided
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+export const db = config.firestoreDatabaseId
+  ? getFirestore(app, config.firestoreDatabaseId)
   : getFirestore(app);
 
 // Firestore Collection Names
@@ -200,34 +211,58 @@ export function subscribeToNotifications(onData: (notifs: ParentNotification[]) 
   );
 }
 
+// Helper to strip undefined values so Firestore never throws 'Unsupported field value: undefined'
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) {
+    return null as any;
+  }
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as any;
+  }
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data as Record<string, any>)) {
+    if (value !== undefined) {
+      result[key] = sanitizeForFirestore(value);
+    }
+  }
+  return result as T;
+}
+
 // ----------------------------------------------------
 // FIRESTORE MUTATION FUNCTIONS
 // ----------------------------------------------------
 
 export async function saveAttendanceRecordToFirebase(record: AttendanceRecord): Promise<void> {
+  const sanitized = sanitizeForFirestore(record);
   const docRef = doc(db, COLLECTIONS.ATTENDANCE, record.id);
-  await setDoc(docRef, record, { merge: true });
+  await setDoc(docRef, sanitized, { merge: true });
 }
 
 export async function saveBatchAttendanceToFirebase(records: AttendanceRecord[]): Promise<void> {
   const batch = writeBatch(db);
   records.forEach((record) => {
+    const sanitized = sanitizeForFirestore(record);
     const docRef = doc(db, COLLECTIONS.ATTENDANCE, record.id);
-    batch.set(docRef, record, { merge: true });
+    batch.set(docRef, sanitized, { merge: true });
   });
   await batch.commit();
 }
 
 export async function saveStudentToFirebase(student: Student): Promise<void> {
+  const sanitized = sanitizeForFirestore(student);
   const docRef = doc(db, COLLECTIONS.STUDENTS, student.id);
-  await setDoc(docRef, student, { merge: true });
+  await setDoc(docRef, sanitized, { merge: true });
 }
 
 export async function saveBatchStudentsToFirebase(studentsList: Student[]): Promise<void> {
   const batch = writeBatch(db);
   studentsList.forEach((st) => {
+    const sanitized = sanitizeForFirestore(st);
     const docRef = doc(db, COLLECTIONS.STUDENTS, st.id);
-    batch.set(docRef, st, { merge: true });
+    batch.set(docRef, sanitized, { merge: true });
   });
   await batch.commit();
 }
@@ -247,8 +282,9 @@ export async function deleteBatchStudentsFromFirebase(studentIds: string[]): Pro
 }
 
 export async function saveClassToFirebase(cls: ClassRoom): Promise<void> {
+  const sanitized = sanitizeForFirestore(cls);
   const docRef = doc(db, COLLECTIONS.CLASSES, cls.id);
-  await setDoc(docRef, cls, { merge: true });
+  await setDoc(docRef, sanitized, { merge: true });
 }
 
 export async function deleteClassFromFirebase(classId: string): Promise<void> {
@@ -257,20 +293,23 @@ export async function deleteClassFromFirebase(classId: string): Promise<void> {
 }
 
 export async function saveSchoolProfileToFirebase(profile: SchoolProfile): Promise<void> {
+  const sanitized = sanitizeForFirestore(profile);
   const docRef = doc(db, COLLECTIONS.SCHOOL_PROFILE, 'main_profile');
-  await setDoc(docRef, profile, { merge: true });
+  await setDoc(docRef, sanitized, { merge: true });
 }
 
 export async function saveNotificationToFirebase(notif: ParentNotification): Promise<void> {
+  const sanitized = sanitizeForFirestore(notif);
   const docRef = doc(db, COLLECTIONS.NOTIFICATIONS, notif.id);
-  await setDoc(docRef, notif, { merge: true });
+  await setDoc(docRef, sanitized, { merge: true });
 }
 
 export async function saveBatchNotificationsToFirebase(notifs: ParentNotification[]): Promise<void> {
   const batch = writeBatch(db);
   notifs.forEach((notif) => {
+    const sanitized = sanitizeForFirestore(notif);
     const docRef = doc(db, COLLECTIONS.NOTIFICATIONS, notif.id);
-    batch.set(docRef, notif, { merge: true });
+    batch.set(docRef, sanitized, { merge: true });
   });
   await batch.commit();
 }

@@ -213,13 +213,15 @@ export default function App() {
     // Update local state instantly for snappy UI
     setAttendanceRecords((prev) => {
       const idx = prev.findIndex((r) => r.studentId === studentId && r.date === date);
+      let next: AttendanceRecord[];
       if (idx >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[idx] = newRec;
-        return next;
       } else {
-        return [...prev, newRec];
+        next = [...prev, newRec];
       }
+      saveStoredAttendance(next);
+      return next;
     });
 
     // Sync to Firestore Cloud
@@ -305,7 +307,9 @@ export default function App() {
       const prevWithoutTodayClass = prev.filter(
         (r) => !(r.classId === classId && r.date === date)
       );
-      return [...prevWithoutTodayClass, ...newBatch];
+      const next = [...prevWithoutTodayClass, ...newBatch];
+      saveStoredAttendance(next);
+      return next;
     });
 
     try {
