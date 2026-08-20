@@ -604,19 +604,6 @@ export const ParentNotifications: React.FC<ParentNotificationsProps> = ({
             />
           </div>
 
-          {/* Terlambat */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Template Pesan: Siswa TERLAMBAT (T)
-            </label>
-            <textarea
-              rows={4}
-              value={editingTemplates.TERLAMBAT}
-              onChange={(e) => setEditingTemplates({ ...editingTemplates, TERLAMBAT: e.target.value })}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-          </div>
-
           <div className="flex items-center justify-between pt-3 border-t border-slate-100">
             {templateSavedMsg && (
               <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">

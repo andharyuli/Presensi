@@ -302,13 +302,4 @@ Mohon segera menghubungi pihak sekolah/Wali Kelas ({WALI_KELAS}) untuk konfirmas
 
 Hormat kami,
 Tim Kesiswaan & Guru Piket {NAMA_SEKOLAH}`,
-
-  TERLAMBAT: `Yth. Bapak/Ibu Orang Tua/Wali dari {NAMA_SISWA} ({NAMA_KELAS}),
-
-Kami memberitahukan bahwa ananda tiba di sekolah *TERLAMBAT* pada pukul {WAKTU} ({KETERANGAN}). Ananda telah diproses oleh Guru Piket dan diizinkan masuk ke ruang kelas.
-
-Mohon bantuan Bapak/Ibu untuk memantau waktu keberangkatan ananda ke sekolah.
-
-Hormat kami,
-Guru Piket {NAMA_SEKOLAH}`,
 };

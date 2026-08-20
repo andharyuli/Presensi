@@ -51,17 +51,12 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   let sick = 0;
   let permitted = 0;
   let absent = 0;
-  let late = 0;
 
   studentRecords.forEach((r) => {
-    if (r.status === 'HADIR') present++;
+    if (r.status === 'HADIR' || (r.status as string) === 'TERLAMBAT') present++;
     else if (r.status === 'SAKIT') sick++;
     else if (r.status === 'IZIN') permitted++;
     else if (r.status === 'ALPHA') absent++;
-    else if (r.status === 'TERLAMBAT') {
-      late++;
-      present++;
-    }
   });
 
   const total = studentRecords.length;

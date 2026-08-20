@@ -141,7 +141,6 @@ export const TodayAbsenceList: React.FC<TodayAbsenceListProps> = ({
     let sick = 0;
     let permitted = 0;
     let absent = 0;
-    let late = 0;
     let present = 0;
 
     allEnrichedStudents.forEach((item) => {
@@ -149,8 +148,7 @@ export const TodayAbsenceList: React.FC<TodayAbsenceListProps> = ({
       if (st === 'SAKIT') sick++;
       else if (st === 'IZIN') permitted++;
       else if (st === 'ALPHA') absent++;
-      else if (st === 'TERLAMBAT') late++;
-      else if (st === 'HADIR') present++;
+      else if (st === 'HADIR' || st === 'TERLAMBAT') present++;
     });
 
     const totalAbsent = sick + permitted + absent;
@@ -160,7 +158,6 @@ export const TodayAbsenceList: React.FC<TodayAbsenceListProps> = ({
       sick,
       permitted,
       absent,
-      late,
       present,
       totalAbsent,
       totalStudents,
@@ -233,11 +230,10 @@ export const TodayAbsenceList: React.FC<TodayAbsenceListProps> = ({
     text += `──────────────────────\n`;
     text += `📊 *RINGKASAN STATUS:*\n`;
     text += `• Total Siswa: ${counts.totalStudents} siswa\n`;
-    text += `• Hadir: ${counts.present + counts.late} siswa\n`;
+    text += `• Hadir: ${counts.present} siswa\n`;
     text += `• Sakit (S): ${counts.sick} siswa\n`;
     text += `• Izin (I): ${counts.permitted} siswa\n`;
     text += `• Alpha (A): ${counts.absent} siswa\n`;
-    text += `• Terlambat (T): ${counts.late} siswa\n`;
     text += `──────────────────────\n\n`;
 
     if (absentOnlyList.length === 0) {
@@ -390,7 +386,7 @@ export const TodayAbsenceList: React.FC<TodayAbsenceListProps> = ({
         </div>
 
         {/* Dynamic Status Counter Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-white/15 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/15 text-xs">
           {/* Total Tidak Hadir */}
           <div
             onClick={() => setStatusFilter('ALL_ABSENT')}
@@ -466,25 +462,6 @@ export const TodayAbsenceList: React.FC<TodayAbsenceListProps> = ({
             </div>
             <div className="text-[10px] text-rose-200/80 mt-0.5">Tanpa keterangan</div>
           </div>
-
-          {/* Terlambat */}
-          <div
-            onClick={() => setStatusFilter('TERLAMBAT')}
-            className={`p-3 rounded-2xl cursor-pointer transition-all border ${
-              statusFilter === 'TERLAMBAT'
-                ? 'bg-orange-500/40 border-orange-300 text-white ring-2 ring-orange-400'
-                : 'bg-orange-500/15 border-orange-400/20 text-orange-100 hover:bg-orange-500/25'
-            }`}
-          >
-            <div className="flex items-center justify-between text-[11px] font-bold text-orange-200">
-              <span>Terlambat (T)</span>
-              <Clock className="w-4 h-4 text-orange-300" />
-            </div>
-            <div className="text-2xl font-black text-orange-100 mt-1">
-              {counts.late} <span className="text-xs font-normal opacity-80">Siswa</span>
-            </div>
-            <div className="text-[10px] text-orange-200/80 mt-0.5">Tercatat di Guru Piket</div>
-          </div>
         </div>
       </div>
 
@@ -536,17 +513,6 @@ export const TodayAbsenceList: React.FC<TodayAbsenceListProps> = ({
             >
               <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
               <span>Alpha ({counts.absent})</span>
-            </button>
-            <button
-              onClick={() => setStatusFilter('TERLAMBAT')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
-                statusFilter === 'TERLAMBAT'
-                  ? 'bg-orange-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-orange-700'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
-              <span>Terlambat ({counts.late})</span>
             </button>
             <button
               onClick={() => setStatusFilter('ALL')}

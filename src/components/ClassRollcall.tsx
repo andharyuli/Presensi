@@ -95,7 +95,6 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
     let sick = 0;
     let permitted = 0;
     let absent = 0;
-    let late = 0;
 
     classStudents.forEach((st) => {
       const rec = attendanceRecords.find(
@@ -103,14 +102,10 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
       );
       const status = rec ? rec.status : 'HADIR';
 
-      if (status === 'HADIR') present++;
+      if (status === 'HADIR' || status === 'TERLAMBAT') present++;
       else if (status === 'SAKIT') sick++;
       else if (status === 'IZIN') permitted++;
       else if (status === 'ALPHA') absent++;
-      else if (status === 'TERLAMBAT') {
-        late++;
-        present++;
-      }
     });
 
     const total = classStudents.length;
@@ -122,7 +117,6 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
       sick,
       permitted,
       absent,
-      late,
       rate,
     };
   }, [classStudents, attendanceRecords, selectedDate]);
@@ -144,7 +138,7 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
       const status = rec ? rec.status : 'HADIR';
 
       if (statusFilter === 'ABSENT_ONLY') {
-        return status === 'SAKIT' || statusFilter === 'IZIN' || status === 'ALPHA';
+        return status === 'SAKIT' || status === 'IZIN' || status === 'ALPHA';
       }
 
       return status === statusFilter;
@@ -155,12 +149,7 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
     student: Student,
     newStatus: AttendanceStatus
   ) => {
-    const defaultTime =
-      newStatus === 'HADIR'
-        ? '06:50'
-        : newStatus === 'TERLAMBAT'
-        ? '07:15'
-        : '-';
+    const defaultTime = newStatus === 'HADIR' ? '06:50' : '-';
 
     const defaultNotes =
       newStatus === 'SAKIT'
@@ -169,8 +158,6 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
         ? 'Izin keperluan keluarga'
         : newStatus === 'ALPHA'
         ? 'Tanpa keterangan'
-        : newStatus === 'TERLAMBAT'
-        ? 'Terlambat masuk kelas'
         : '';
 
     onUpdateAttendance(
@@ -179,8 +166,7 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
       selectedDate,
       newStatus,
       defaultNotes,
-      defaultTime,
-      newStatus === 'TERLAMBAT' ? 15 : undefined
+      defaultTime
     );
   };
 
@@ -459,7 +445,6 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
             { key: 'SAKIT', label: 'Sakit' },
             { key: 'IZIN', label: 'Izin' },
             { key: 'ALPHA', label: 'Alpha' },
-            { key: 'TERLAMBAT', label: 'Terlambat' },
           ].map((f) => (
             <button
               key={f.key}
@@ -611,20 +596,6 @@ export const ClassRollcall: React.FC<ClassRollcallProps> = ({
                           >
                             <span>A</span>
                             <span className="hidden sm:inline text-[10px]">Alpha</span>
-                          </button>
-
-                          {/* Terlambat */}
-                          <button
-                            id={`status-late-${student.id}`}
-                            onClick={() => handleStatusChange(student, 'TERLAMBAT')}
-                            className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1 ${
-                              status === 'TERLAMBAT'
-                                ? 'bg-orange-500 text-white shadow-2xs'
-                                : 'text-slate-600 hover:bg-white/80'
-                            }`}
-                          >
-                            <span>T</span>
-                            <span className="hidden sm:inline text-[10px]">Telat</span>
                           </button>
                         </div>
                       </td>

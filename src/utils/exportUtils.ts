@@ -47,7 +47,6 @@ export function getStatusBadgeText(status: AttendanceStatus): string {
     case 'SAKIT': return 'Sakit';
     case 'IZIN': return 'Izin';
     case 'ALPHA': return 'Alpha';
-    case 'TERLAMBAT': return 'Terlambat';
     default: return status;
   }
 }
@@ -78,7 +77,6 @@ export function exportAttendanceToExcel({
   let sick = 0;
   let permitted = 0;
   let absent = 0;
-  let late = 0;
 
   const rows = filteredStudents.map((student, index) => {
     const record = records.find((r) => r.studentId === student.id && r.date === date);
@@ -86,14 +84,10 @@ export function exportAttendanceToExcel({
     const time = record?.time || '07:00';
     const notes = record?.notes || '-';
     
-    if (status === 'HADIR') present++;
+    if (status === 'HADIR' || (status as string) === 'TERLAMBAT') present++;
     else if (status === 'SAKIT') sick++;
     else if (status === 'IZIN') permitted++;
     else if (status === 'ALPHA') absent++;
-    else if (status === 'TERLAMBAT') {
-      late++;
-      present++;
-    }
 
     const notif = notifications.find((n) => n.studentId === student.id && n.date === date);
     const notifStatus = notif ? notif.deliveryStatus : '-';
@@ -127,7 +121,6 @@ export function exportAttendanceToExcel({
     { Label: 'Sakit (S)', Nilai: sick },
     { Label: 'Izin (I)', Nilai: permitted },
     { Label: 'Alpha / Tanpa Ket (A)', Nilai: absent },
-    { Label: 'Terlambat (T)', Nilai: late },
   ];
 
   const wb = XLSX.utils.book_new();
@@ -221,7 +214,6 @@ export function exportAttendanceToPDF({
   let sick = 0;
   let permitted = 0;
   let absent = 0;
-  let late = 0;
 
   // 4. TABLE ROWS
   const tableData = filteredStudents.map((student, idx) => {
@@ -230,14 +222,10 @@ export function exportAttendanceToPDF({
     const time = record?.time || '07:00';
     const notes = record?.notes || '-';
 
-    if (status === 'HADIR') present++;
+    if (status === 'HADIR' || (status as string) === 'TERLAMBAT') present++;
     else if (status === 'SAKIT') sick++;
     else if (status === 'IZIN') permitted++;
     else if (status === 'ALPHA') absent++;
-    else if (status === 'TERLAMBAT') {
-      late++;
-      present++;
-    }
 
     const currentClass = allClasses.find((c) => c.id === student.classId);
 
@@ -290,7 +278,6 @@ export function exportAttendanceToPDF({
         if (text === 'Sakit') data.cell.styles.textColor = [180, 83, 9]; // Amber
         else if (text === 'Izin') data.cell.styles.textColor = [67, 56, 202]; // Indigo
         else if (text === 'Alpha') data.cell.styles.textColor = [225, 29, 72]; // Rose/Red
-        else if (text === 'Terlambat') data.cell.styles.textColor = [217, 119, 6]; // Orange
         else data.cell.styles.textColor = [16, 185, 129]; // Emerald
       }
     },
@@ -315,11 +302,10 @@ export function exportAttendanceToPDF({
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`Total Siswa: ${total} Orang`, 18, currentY + 11);
-  doc.text(`Hadir: ${present} (${attendanceRate}%)`, 60, currentY + 11);
-  doc.text(`Sakit: ${sick}`, 105, currentY + 11);
-  doc.text(`Izin: ${permitted}`, 130, currentY + 11);
-  doc.text(`Alpha: ${absent}`, 152, currentY + 11);
-  doc.text(`Terlambat: ${late}`, 172, currentY + 11);
+  doc.text(`Hadir: ${present} (${attendanceRate}%)`, 65, currentY + 11);
+  doc.text(`Sakit (S): ${sick}`, 115, currentY + 11);
+  doc.text(`Izin (I): ${permitted}`, 145, currentY + 11);
+  doc.text(`Alpha (A): ${absent}`, 172, currentY + 11);
 
   // Signature Block
   const sigY = currentY + 24;

@@ -47,6 +47,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: LayoutDashboard,
     },
     {
+      id: 'classes',
+      label: 'Menu Kelas',
+      icon: School,
+    },
+    {
       id: 'today-absence',
       label: 'Daftar Izin, Sakit & Alpha',
       icon: HeartPulse,
@@ -64,11 +69,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       label: 'Notifikasi Ortu',
       icon: BellRing,
       count: unreadNotifsCount,
-    },
-    {
-      id: 'classes',
-      label: 'Menu Kelas',
-      icon: School,
     },
     {
       id: 'students',
