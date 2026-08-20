@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Presensi & Rekapitulasi Siswa",
+  "description": "Aplikasi laporan presensi dan rekapitulasi kehadiran siswa SMP Negeri 1 Pundong (NPSN 20400356, 21 Kelas: 7A-G, 8A-G, 9A-G) dengan ekspor PDF & Excel, sistem notifikasi otomatis WhatsApp orang tua, dan dasbor analitik.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
